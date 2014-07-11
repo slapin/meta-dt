@@ -1,0 +1,64 @@
+#define OpenEmbedded 1
+#define ImakeDependency(target) /**/
+
+#define ImakeSubCmdHelper $(IMAKE_CMD) -I$(IMAKEPREFIX)$(IRULESRC) $(IMAKE_DEFINES) $(IMAKE_DEF_DTINFO)
+
+#define MakeMakeSubdirs(dirs,target)					@@\
+$(ONESUBDIR)/Makefile:							@@\
+	MakeFlagsToShellFlags(n,executeit="no"); \			@@\
+	cd $(ONESUBDIR); \						@@\
+	if [ "$$executeit" != "no" ]; then \				@@\
+		ImakeSubCmdHelper -DTOPDIR=$(IMAKETOP) -DCURDIR=$(ONECURDIR)$(ONESUBDIR); \ @@\
+	fi;								@@\
+									@@\
+target::								@@\
+	-MakeFlagsToShellFlags(ik,set +e); \				@@\
+	MakeFlagsToShellFlags(n,executeit="no"); \			@@\
+	for i in dirs ;\						@@\
+	do \								@@\
+		case "$(CURRENT_DIR)" in \				@@\
+		.) curdir= ;; \						@@\
+		*) curdir=$(CURRENT_DIR)/ ;; \				@@\
+		esac; \							@@\
+		echo "making Makefiles in $$curdir$$i..."; \		@@\
+		itmp=`echo $$i | $(SED) -e 's;^\./;;g' -e 's;/\./;/;g'`; \	@@\
+		curtmp="$(CURRENT_DIR)" \				@@\
+		toptmp=""; \						@@\
+		case "$$itmp" in \					@@\
+		    ../?*) \ 						@@\
+			while echo "$$itmp" | grep '^\.\./' > /dev/null;\	@@\
+			  do \						@@\
+			     toptmp="/`basename $$curtmp`$$toptmp"; \	@@\
+			     curtmp="`dirname $$curtmp`"; \		@@\
+			     itmp="`echo $$itmp | $(SED) 's;\.\./;;'`"; \	@@\
+			  done \					@@\
+		    ;; \						@@\
+		esac; \							@@\
+		case "$$itmp" in \					@@\
+		*/?*/?*/?*/?*)	newtop=../../../../..;; \		@@\
+		*/?*/?*/?*)	newtop=../../../..;; \			@@\
+		*/?*/?*)	newtop=../../..;; \			@@\
+		*/?*)		newtop=../..;; \			@@\
+		*)		newtop=..;; \				@@\
+		esac; \							@@\
+		newtop="$$newtop$$toptmp"; \				@@\
+		case "$(TOP)" in \					@@\
+		/?*) imaketop=$(TOP) \					@@\
+		     imakeprefix= ;; \					@@\
+		.) imaketop=$$newtop \					@@\
+		   imakeprefix=$$newtop/ ;; \				@@\
+		*) imaketop=$$newtop/$(TOP) \				@@\
+		   imakeprefix=$$newtop/ ;; \				@@\
+		esac; \							@@\
+		RemoveFile($$i/Makefile.bak); \				@@\
+		if [ -f $$i/Makefile ]; then \				@@\
+			echo "	$(MV) Makefile Makefile.bak"; \		@@\
+			if [ "$$executeit" != "no" ]; then \		@@\
+				$(MV) $$i/Makefile $$i/Makefile.bak; \	@@\
+			fi; \						@@\
+		fi; \							@@\
+		$(MAKE) $(MFLAGS) $(MAKE_OPTS) ONESUBDIR=$$i ONECURDIR=$$curdir IMAKETOP=$$imaketop IMAKEPREFIX=$$imakeprefix $$i/Makefile; \	@@\
+		cd $$i;	\						@@\
+		$(MAKE) $(MFLAGS) Makefiles; \				@@\
+		cd $$newtop; \						@@\
+	done
